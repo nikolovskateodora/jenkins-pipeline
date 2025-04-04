@@ -1,16 +1,44 @@
-node {
-    def app
-    stage('Clone repository') {
-        checkout scm
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+        DOCKER_CREDENTIALS = 'dockerhub'  
     }
-    stage('Build image') {
-       app = docker.build("nikolovskateodora/jenkins-pipeline")
+
+    stages {
+        stage('Clone repository') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                script {
+                    app = docker.build("nikolovskateodora/jenkins-pipeline")
+                }
+            }
+        }
+
+        stage('Push image') {
+            steps {
+                script {
+                    docker.withRegistry(DOCKER_REGISTRY, DOCKER_CREDENTIALS) {
+                        app.push("${env.BRANCH_NAME}-${env.BUILD_NUMBER}")
+                        app.push("${env.BRANCH_NAME}-latest")
+                    }
+                }
+            }
+        }
     }
-    stage('Push image') {   
-        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
-            app.push("${env.BRANCH_NAME}-${env.BUILD_NUMBER}")
-            app.push("${env.BRANCH_NAME}-latest")
-            // signal the orchestrator that there is a new version
+
+    post {
+        success {
+            echo 'Pipeline successfully completed!'
+        }
+        failure {
+            echo 'Pipeline failed.'
         }
     }
 }
